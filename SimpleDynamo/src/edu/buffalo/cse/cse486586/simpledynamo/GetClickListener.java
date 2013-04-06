@@ -49,7 +49,7 @@ public class GetClickListener implements OnClickListener {
 		@Override
 		protected Void doInBackground(Void... params) {
 			getClicks++;
-			publishProgress("New Put1 Request - Click: " + getClicks + "\n");
+			publishProgress("New Get Request - Click: " + getClicks + "\n");
 			return null;
 		}
 		

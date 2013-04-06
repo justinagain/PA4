@@ -15,7 +15,7 @@ public class Util {
 
 	public static Uri getProviderUri() {
 		String scheme = "content"; 
-		String authority = "edu.buffalo.cse.cse486_586.simpledynamo.provider";
+		String authority = "edu.buffalo.cse.cse486586.simpledynamo.provider";
 		Uri.Builder uriBuilder = new Uri.Builder();
 		uriBuilder.authority(authority);
 		uriBuilder.scheme(scheme);
