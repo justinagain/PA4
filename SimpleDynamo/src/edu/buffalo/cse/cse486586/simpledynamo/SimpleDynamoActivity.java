@@ -7,7 +7,7 @@ import android.view.Menu;
 import android.widget.TextView;
 
 public class SimpleDynamoActivity extends Activity {
-
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);

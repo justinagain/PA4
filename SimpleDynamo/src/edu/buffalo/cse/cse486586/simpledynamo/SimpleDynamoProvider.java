@@ -25,6 +25,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 	
 	public static final String TAG = SimpleDynamoProvider.class.getName();
 	private String currentNode;
+	public static final String ALL_SELECTION_LOCAL = "all_local_select";
+
 	
     @Override
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
@@ -62,10 +64,26 @@ public class SimpleDynamoProvider extends ContentProvider {
     public Cursor query(Uri providedUri, String[] arg1, String keyValue, String[] arg3,
 			String arg4) {
     	MatrixCursor matrixCursor = new MatrixCursor(new String[]{"key", "value"});
-		getLocalKeyValue(matrixCursor, keyValue);			
+		if(keyValue.equals(ALL_SELECTION_LOCAL)){
+			getAllLocalKeyValue(matrixCursor);
+		}
+		else{
+	    	getLocalKeyValue(matrixCursor, keyValue);						
+		}
 		return matrixCursor;    
 	}
     
+	private void getAllLocalKeyValue(MatrixCursor matrixCursor) {
+		for (int i = 0; i < 20; i++) {
+			getLocalKeyValue(matrixCursor, i + "");
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	private void getLocalKeyValue(MatrixCursor matrixCursor, String keyValue) {
 		File[] files = this.getContext().getFilesDir().listFiles();
 		String fileName = Util.getProviderUri().toString();

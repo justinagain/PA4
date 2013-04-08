@@ -1,8 +1,6 @@
 package edu.buffalo.cse.cse486586.simpledynamo;
-import java.security.NoSuchAlgorithmException;
 
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -13,6 +11,7 @@ import android.widget.TextView;
 
 
 public class OnLDumpClickListener implements OnClickListener {
+
 
 	private static int ldumpClicks = 0;
 	private static final String TAG = OnLDumpClickListener.class.getName();
@@ -27,7 +26,7 @@ public class OnLDumpClickListener implements OnClickListener {
 	public OnLDumpClickListener(TextView _tv, ContentResolver _cr) {
 		mTextView = _tv;
 		mContentResolver = _cr;
-		mUri = buildUri("content", "edu.buffalo.cse.cse486586.simpledht.provider");
+		mUri = Util.getProviderUri();
 	}
 		
 	private Uri buildUri(String scheme, String authority) {
@@ -48,6 +47,18 @@ public class OnLDumpClickListener implements OnClickListener {
 		
 		@Override
 		protected Void doInBackground(Void... params) {
+	    	Uri selectAllUri = Util.getProviderUri();
+	    	Log.v(TAG, "About to query from LDump");
+	    	Cursor resultCursor = mContentResolver.query(selectAllUri, null, SimpleDynamoProvider.ALL_SELECTION_LOCAL, null, "");
+			int keyIndex = resultCursor.getColumnIndex(OnLDumpClickListener.KEY_FIELD);
+			int valueIndex = resultCursor.getColumnIndex(OnLDumpClickListener.VALUE_FIELD);
+			Log.v(TAG, "About LDump the results");
+			for (boolean hasItem = resultCursor.moveToFirst(); hasItem; hasItem = resultCursor.moveToNext()) {
+				String key = resultCursor.getString(keyIndex);
+				String value = resultCursor.getString(valueIndex);
+				Log.v(TAG, "Key and value are: " + key + " : " + value);
+				publishProgress(key + ":" + value + "\n");
+			}
 			ldumpClicks++;
 			publishProgress("New LDump Request - Click: " + ldumpClicks + "\n");
 			return null;
