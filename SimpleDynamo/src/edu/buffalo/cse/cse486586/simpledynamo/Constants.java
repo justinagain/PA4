@@ -19,7 +19,7 @@ public class Constants {
 	final public static String[] AVD0_REMOTE_CLIENTS = new String[]{"11112", "11116"};
 	final public static String[] AVD1_REMOTE_CLIENTS = new String[]{"11108", "11116"};
 	final public static String[] AVD2_REMOTE_CLIENTS = new String[]{"11108", "11112"};
-
+	
 	final public static int[] AVD_REMOTE_CLIENTS = new int[]{11108, 11112, 11116};
 	public static final int DHT_MASTER = 11108;
 }

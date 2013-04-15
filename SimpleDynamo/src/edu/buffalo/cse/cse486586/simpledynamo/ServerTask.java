@@ -12,7 +12,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import android.app.Activity;
 import android.content.ContentValues;
 import android.net.Uri;
@@ -25,7 +24,6 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 
 	private static final String TAG = ServerTask.class.getName();
 	private SimpleDynamoProvider sdp;
-	
 	
 	public ServerTask(SimpleDynamoProvider newSdp){
 		sdp = newSdp;
@@ -44,11 +42,23 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 				socket = serverSocket.accept();
 				Log.v(TAG, "A message is coming in ... ");
 				InputStream stream = socket.getInputStream();
-				byte[] data = new byte[DynamoMessage.MSG_SIZE];
+				byte[] data = new byte[SimpleDynamoMessage.MSG_SIZE];
 				int count = stream.read(data);				
 				Log.v(TAG, "Message recieved with bytes: " + count);
-				DynamoMessage dm = DynamoMessage.createMessageFromByteArray(data);
-				// process message!
+				SimpleDynamoMessage sdm = SimpleDynamoMessage.createMessageFromByteArray(data);
+				if(sdm.isInsertRequest()){
+					Log.v(TAG, "An insert request has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
+					sdp.processInsertRequest(sdm);
+				} else if(sdm.isQueryRequest()){
+					Log.v(TAG, "A query request has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
+					sdp.processQueryRequest(sdm);					
+				} else if(sdm.isQueryResponse()){
+					Log.v(TAG, "A query response has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
+					sdp.processQueryResponse(sdm);
+				}
 				socket.close();
 			}
 		}
