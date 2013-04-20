@@ -46,10 +46,10 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 				int count = stream.read(data);				
 				Log.v(TAG, "Message recieved with bytes: " + count);
 				SimpleDynamoMessage sdm = SimpleDynamoMessage.createMessageFromByteArray(data);
-				if(sdm.isInsertRequest()){
+				if(sdm.isInsertRequestRequest()){
 					Log.v(TAG, "An insert request has been received.");
 					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
-					sdp.processInsertRequest(sdm);
+					sdp.processInsertRequestRequest(sdm);
 				} else if(sdm.isQueryRequest()){
 					Log.v(TAG, "A query request has been received.");
 					Log.v(TAG, "Recevied from " + sdm.getAvdOne());

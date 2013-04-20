@@ -4,6 +4,7 @@ public class SimpleDynamoMessage {
 	
 
 	public static final String INSERT = "i";
+	public static final String INSERT_REQUEST = "r";
 
 	
 	
@@ -108,7 +109,7 @@ public class SimpleDynamoMessage {
 		}
 	}
 
-	public boolean isInsertRequest(){return determineType(INSERT);}
+	public boolean isInsertRequestRequest(){return determineType(INSERT_REQUEST);}
 
 		
 	private boolean determineType(String type) {
@@ -129,8 +130,8 @@ public class SimpleDynamoMessage {
 		return dhtMessage;
 	}
 	
-	public static SimpleDynamoMessage getInsertMessage(String avd, String key, String value) {
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT);
+	public static SimpleDynamoMessage getInsertRequestMessage(String avd, String key, String value) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT_REQUEST);
 		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
 		dhtMessage.setKey(key);
 		dhtMessage.setValue(value);

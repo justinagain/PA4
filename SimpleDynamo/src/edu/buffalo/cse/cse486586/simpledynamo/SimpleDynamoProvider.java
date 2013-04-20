@@ -36,9 +36,18 @@ public class SimpleDynamoProvider extends ContentProvider {
 
     @Override
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
-		Log.v(TAG, "About to insert into content provider with URI: " + simpleDhtUri.toString());
-        writeToInternalStorage(simpleDhtUri, contentValues);
-        getContext().getContentResolver().notifyChange(simpleDhtUri, null);
+    	if(Util.isCoordinator(currentNode)){
+    		Log.v(TAG, "About to insert into content provider with URI: " + simpleDhtUri.toString());
+            writeToInternalStorage(simpleDhtUri, contentValues);
+            getContext().getContentResolver().notifyChange(simpleDhtUri, null);    		
+    	}
+    	//send to Coordinator
+    	else{
+			String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
+			String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
+			SimpleDynamoMessage message = SimpleDynamoMessage.getInsertRequestMessage(Constants.AVD0_PORT, keyValue, contentValue);
+	    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
+    	}
 		return simpleDhtUri;
     }
 
@@ -52,31 +61,15 @@ public class SimpleDynamoProvider extends ContentProvider {
 			// Satisfies 2.1.a
 			String type = findPartition(keyValue);
 			Log.v(TAG, "Determined should be sent to: " + type);
-
-			if(type.equals(PREDECESSOR_NODE)){
-				Log.v(TAG, "I have a message that must be sent to the predecessor node " + predecessorNode);
-				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertMessage(predecessorNode, keyValue, contentValue);
-		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				
-			}
-			else if(type.equals(CURRENT_NODE)){
-				Log.v(TAG, "I have a message that belongs to the current node " + currentNode);				
-				String fileName = uri.toString().replace("content://", "");
-				fileName = fileName + "_" + keyValue;
-				Log.v(TAG, "filename is: " + fileName);
-				fos = this.getContext().openFileOutput(fileName, Context.MODE_PRIVATE);
-				fos.write(contentValue.getBytes());				
-				fos.close();
-				success = true;
-				Log.v(TAG, "Wrote ContentValues successfully.");								
-			}
-			else if(type.equals(SUCCESSOR_NODE)){
-				Log.v(TAG, "I have a message that must be sent to the successor node " + successorNode);				
-				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertMessage(successorNode, keyValue, contentValue);
-		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				
-			}
-			else{
-				Log.v(TAG, "Bad mojo - no node found!");
-			}
+			Log.v(TAG, "I have a message that belongs to the current node " + currentNode);				
+			String fileName = uri.toString().replace("content://", "");
+			fileName = fileName + "_" + keyValue;
+			Log.v(TAG, "filename is: " + fileName);
+			fos = this.getContext().openFileOutput(fileName, Context.MODE_PRIVATE);
+			fos.write(contentValue.getBytes());				
+			fos.close();
+			success = true;
+			Log.v(TAG, "Wrote ContentValues successfully.");								
 		} catch (FileNotFoundException e) {
 			Log.v(TAG, "File not found when writing ContentValues");
 			e.printStackTrace();
@@ -88,67 +81,32 @@ public class SimpleDynamoProvider extends ContentProvider {
 	}
 	
 	private String findPartition(String keyToInsert){
-		Log.v(TAG, "Evaluation where key should be inserted for key: " + keyToInsert);
 		String type = "";
 		String keyHash;
 		try {
 			keyHash = genHash(keyToInsert);
-			String predecessorHash = genHash(predecessorNode);
-			String currentNodeHash = genHash(currentNode);
-			String successorHash = genHash(successorNode);
+			String predecessorHash = genHash("5556");
+			String currentNodeHash = genHash("5554");
+			String successorHash = genHash("5558");
 			
 			// THERE ARE THREE OR MORE NODES
-			if(predecessorHash.compareTo(currentNodeHash) < 0 &&
-			   currentNodeHash.compareTo(successorHash) < 0){
-				
-				if(keyHash.compareTo(predecessorHash) > 0 &&
-					keyHash.compareTo(currentNodeHash) < 0){
-					type = PREDECESSOR_NODE;
-				}
-				else if(keyHash.compareTo(currentNodeHash) > 0 &&
-					keyHash.compareTo(successorHash) < 0){
+			if(keyHash.compareTo(currentNodeHash) > 0 &&
+			   keyHash.compareTo(successorHash) < 0){				
 					type = CURRENT_NODE;
-				}
-				else{
-					type = SUCCESSOR_NODE;
-				}
 			}
-			else if(successorHash.compareTo(predecessorHash) < 0 &&
-					   predecessorHash.compareTo(currentNodeHash) < 0){
-						
-				if(keyHash.compareTo(predecessorHash) > 0 &&
-					keyHash.compareTo(currentNodeHash) < 0){
+			else if(keyHash.compareTo(predecessorHash) > 0 &&
+					   keyHash.compareTo(currentNodeHash) < 0){		
 					type = PREDECESSOR_NODE;
-				}
-				else if(keyHash.compareTo(successorHash) > 0 &&
-					keyHash.compareTo(predecessorHash) < 0){
-					type = SUCCESSOR_NODE;
-				}
-				else{
-					type = CURRENT_NODE;
-				}
 			}
-			else if(currentNodeHash.compareTo(successorHash) < 0 &&
-					   successorHash.compareTo(predecessorHash) < 0){
-						
-				if(keyHash.compareTo(currentNodeHash) > 0 &&
-					keyHash.compareTo(successorHash) < 0){
-					type = CURRENT_NODE;
-				}
-				else if(keyHash.compareTo(successorHash) > 0 &&
-					keyHash.compareTo(predecessorHash) < 0){
+			else if(keyHash.compareTo(successorHash) > 0 ||
+					   keyHash.compareTo(predecessorHash) < 0){						
 					type = SUCCESSOR_NODE;
-				}
-				else{
-					type = PREDECESSOR_NODE;
-				}
 			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
 		return type;
 	}
-
     @Override
     public Cursor query(Uri providedUri, String[] arg1, String keyValue, String[] arg3,
 			String arg4) {
@@ -294,11 +252,14 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 	}
 	
-	public void processInsertRequest(SimpleDynamoMessage sdm) {
+	public void processInsertRequestRequest(SimpleDynamoMessage sdm) {
 		ContentValues cv = new ContentValues();
 		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
 		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
-		insert(Util.getProviderUri(), cv);		
+		String partiion = findPartition(sdm.getKey());
+		Log.v(TAG, "Partition is: " + partiion);		
+		//insert(Util.getProviderUri(), cv);		
+		
 	}
 
 	public void processQueryResponse(SimpleDynamoMessage sdm) {

@@ -91,4 +91,11 @@ public class Util {
 		}
 		return successor;		
 	}
+	public static boolean isCoordinator(String avd) {
+		boolean coordinator = false;
+		if(avd.equals(Constants.AVD0_PORT)){
+			coordinator = true;
+		}
+		return coordinator;
+	}
 }
