@@ -36,15 +36,16 @@ public class SimpleDynamoProvider extends ContentProvider {
 
     @Override
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
-    	if(Util.isCoordinator(currentNode)){
-    		Log.v(TAG, "About to insert into content provider with URI: " + simpleDhtUri.toString());
-            writeToInternalStorage(simpleDhtUri, contentValues);
-            getContext().getContentResolver().notifyChange(simpleDhtUri, null);    		
+		String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
+		String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
+		String port = findPartition(keyValue);
+		Log.v(TAG, "Partition is: " + port);		
+    	if(Util.isCoordinator(currentNode) && port.equals(currentNode)){
+	        writeToInternalStorage(Util.getProviderUri(), contentValues);
+	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
     	}
-    	//send to Coordinator
+    	//send to Coordinator if you get an insert and you are not the coordinator
     	else{
-			String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
-			String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
 			SimpleDynamoMessage message = SimpleDynamoMessage.getInsertRequestMessage(Constants.AVD0_PORT, keyValue, contentValue);
 	    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
     	}
@@ -81,31 +82,32 @@ public class SimpleDynamoProvider extends ContentProvider {
 	}
 	
 	private String findPartition(String keyToInsert){
-		String type = "";
+		String port = "";
 		String keyHash;
 		try {
 			keyHash = genHash(keyToInsert);
-			String predecessorHash = genHash("5556");
-			String currentNodeHash = genHash("5554");
-			String successorHash = genHash("5558");
+			String predecessorHash = genHash(Constants.AVD1_PORT);
+			String currentNodeHash = genHash(Constants.AVD0_PORT);
+			String successorHash = genHash(Constants.AVD2_PORT);
 			
 			// THERE ARE THREE OR MORE NODES
 			if(keyHash.compareTo(currentNodeHash) > 0 &&
 			   keyHash.compareTo(successorHash) < 0){				
-					type = CURRENT_NODE;
+					// current node
+					port = Constants.AVD0_PORT;
 			}
 			else if(keyHash.compareTo(predecessorHash) > 0 &&
 					   keyHash.compareTo(currentNodeHash) < 0){		
-					type = PREDECESSOR_NODE;
+					port = Constants.AVD1_PORT;
 			}
 			else if(keyHash.compareTo(successorHash) > 0 ||
 					   keyHash.compareTo(predecessorHash) < 0){						
-					type = SUCCESSOR_NODE;
+					port = Constants.AVD2_PORT;
 			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		return type;
+		return port;
 	}
     @Override
     public Cursor query(Uri providedUri, String[] arg1, String keyValue, String[] arg3,
@@ -252,14 +254,22 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 	}
 	
-	public void processInsertRequestRequest(SimpleDynamoMessage sdm) {
+	public void processInsertRequestMessage(SimpleDynamoMessage sdm) {
 		ContentValues cv = new ContentValues();
 		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
 		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
-		String partiion = findPartition(sdm.getKey());
-		Log.v(TAG, "Partition is: " + partiion);		
-		//insert(Util.getProviderUri(), cv);		
-		
+		String port = findPartition(sdm.getKey());
+		Log.v(TAG, "Partition is: " + port);	
+		// Add to AVd zero if it should go there
+		if(port.equals(Constants.AVD0_PORT)){
+	        writeToInternalStorage(Util.getProviderUri(), cv);
+	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
+		}
+		else{
+			// otherwise send where appropriate
+			SimpleDynamoMessage sdm2 = SimpleDynamoMessage.getInsertMessage(port, sdm.getKey(), sdm.getValue());
+			new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sdm2);
+		}
 	}
 
 	public void processQueryResponse(SimpleDynamoMessage sdm) {
@@ -278,6 +288,14 @@ public class SimpleDynamoProvider extends ContentProvider {
 		String returnValue = cursor.getString(valueIndex);
 		SimpleDynamoMessage dmResponse = SimpleDynamoMessage.getQueryResponsMessage(sdm.getAvdTwo(), key, returnValue);
 		new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, dmResponse);
+	}
+
+	public void processInsertMessage(SimpleDynamoMessage sdm) {
+		ContentValues cv = new ContentValues();
+		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
+		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
+        writeToInternalStorage(Util.getProviderUri(), cv);
+        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
 	}
 
 	

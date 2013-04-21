@@ -109,7 +109,8 @@ public class SimpleDynamoMessage {
 		}
 	}
 
-	public boolean isInsertRequestRequest(){return determineType(INSERT_REQUEST);}
+	public boolean isInsertRequestMessage(){return determineType(INSERT_REQUEST);}
+	public boolean isInsertMessage(){return determineType(INSERT);}
 
 		
 	private boolean determineType(String type) {
@@ -137,6 +138,15 @@ public class SimpleDynamoMessage {
 		dhtMessage.setValue(value);
 		return dhtMessage;
 	}
+	
+	public static SimpleDynamoMessage getInsertMessage(String avd, String key, String value) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT);
+		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
+		dhtMessage.setKey(key);
+		dhtMessage.setValue(value);
+		return dhtMessage;
+	}
+
 	
 	public static SimpleDynamoMessage getQueryResponsMessage(String avdTwo, String key, String returnValue) {
 		SimpleDynamoMessage dm = new SimpleDynamoMessage(SINGLE_QUERY_RESPONSE);
@@ -230,6 +240,7 @@ public class SimpleDynamoMessage {
 		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(QUERY);
 		return dhtMessage;		
 	}
+
 	
 
 

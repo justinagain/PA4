@@ -71,11 +71,11 @@ public class PutClickListener implements OnClickListener {
 				return null;
 			}
 
-			if (testQuery()) {
-				publishProgress("Query success\n");
-			} else {
-				publishProgress("Query fail\n");
-			}
+//			if (testQuery()) {
+//				publishProgress("Query success\n");
+//			} else {
+//				publishProgress("Query fail\n");
+//			}
 			
 			return null;
 		}
