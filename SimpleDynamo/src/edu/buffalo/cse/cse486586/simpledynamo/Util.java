@@ -36,11 +36,11 @@ public class Util {
 	public static String getPredecessor(String currentAvd){
 		String predecessor = "DEFAULT";
 		if(currentAvd.equals(Constants.AVD0_PORT)){
-			predecessor = Constants.AVD2_PORT;			
+			predecessor = Constants.AVD1_PORT;			
 		} else if(currentAvd.equals(Constants.AVD1_PORT)){
-			predecessor = Constants.AVD0_PORT;			
+			predecessor = Constants.AVD2_PORT;			
 		} else if(currentAvd.equals(Constants.AVD2_PORT)){
-			predecessor = Constants.AVD1_PORT;
+			predecessor = Constants.AVD0_PORT;
 		}
 		return predecessor;
 	}
@@ -48,19 +48,12 @@ public class Util {
 	public static String getSuccessor(String currentAvd){
 		String successor = "DEFAULT";
 		if(currentAvd.equals(Constants.AVD0_PORT)){
-			successor = Constants.AVD1_PORT;			
-		} else if(currentAvd.equals(Constants.AVD1_PORT)){
 			successor = Constants.AVD2_PORT;			
+		} else if(currentAvd.equals(Constants.AVD1_PORT)){
+			successor = Constants.AVD0_PORT;			
 		} else if(currentAvd.equals(Constants.AVD2_PORT)){
-			successor = Constants.AVD0_PORT;
+			successor = Constants.AVD1_PORT;
 		}
 		return successor;		
-	}
-	public static boolean isCoordinator(String avd) {
-		boolean coordinator = false;
-		if(avd.equals(Constants.AVD0_PORT)){
-			coordinator = true;
-		}
-		return coordinator;
 	}
 }

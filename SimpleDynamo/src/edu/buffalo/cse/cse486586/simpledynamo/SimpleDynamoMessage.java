@@ -4,9 +4,6 @@ public class SimpleDynamoMessage {
 	
 
 	public static final String INSERT = "i";
-	public static final String INSERT_REQUEST = "r";
-
-	
 	
 	public static final String GLOBAL_QUERY_RESPONSE = "a";
 	public static final String GLOBAL_QUERY = "g";
@@ -109,10 +106,8 @@ public class SimpleDynamoMessage {
 		}
 	}
 
-	public boolean isInsertRequestMessage(){return determineType(INSERT_REQUEST);}
 	public boolean isInsertMessage(){return determineType(INSERT);}
 
-		
 	private boolean determineType(String type) {
 		String byteValue = new String(new byte[]{payload[0]});
 		boolean isRequestType = false;
@@ -128,14 +123,6 @@ public class SimpleDynamoMessage {
 		dhtMessage.setAvd(nodeToSendQuery, SimpleDynamoMessage.AVD_INSERT_PT_ONE);
 		dhtMessage.setAvd(currentNode, SimpleDynamoMessage.AVD_INSERT_PT_TWO);
 		dhtMessage.setKeyForSingle(key);
-		return dhtMessage;
-	}
-	
-	public static SimpleDynamoMessage getInsertRequestMessage(String avd, String key, String value) {
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT_REQUEST);
-		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
-		dhtMessage.setKey(key);
-		dhtMessage.setValue(value);
 		return dhtMessage;
 	}
 	
@@ -158,66 +145,6 @@ public class SimpleDynamoMessage {
 
 	public boolean isQueryRequest() {return determineType(SINGLE_QUERY_REQUEST);}
 	public boolean isQueryResponse() {return determineType(SINGLE_QUERY_RESPONSE);}
-	
-	/** Archived Method Types
-	 * Archived Method Types
-	 * Archived Method Types
-	 * * Archived Method Types
-	 * * Archived Method Types
-	 * * Archived Method Types
-	 * * Archived Method Types
-	 * * @return
-	 */
-	
-	public String getAvdTwo(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_TWO));}
-	public String getAvdThree(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_THREE));}
-	public boolean isJoinRequest(){ return determineType(REQUEST_JOIN); }
-	public boolean isNewJoinResponse(){ return determineType(NEW_JOIN_RESPONSE); }
-	public boolean isNewPredecessorResponse(){ return determineType(NEW_PREDECESSOR_RESPONSE); }
-	public boolean isNewSucessorResponse(){ return determineType(NEW_SUCCESSOR_RESPONSE); }
-	public boolean isGlobalDumpRequest() {return determineType(GLOBAL_QUERY);}
-	public boolean isGloablDumpResponse() {return determineType(GLOBAL_QUERY_RESPONSE);}
-	//SINGLE_QUERY_REQUEST
-	
-	public static SimpleDynamoMessage getJoinResponseMessage(String predecessor, String insertNode, String successor, String responseType) {
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(responseType);
-		dhtMessage.setAvd(predecessor,SimpleDynamoMessage.AVD_INSERT_PT_ONE);
-		dhtMessage.setAvd(insertNode,SimpleDynamoMessage.AVD_INSERT_PT_TWO);
-		dhtMessage.setAvd(successor,SimpleDynamoMessage.AVD_INSERT_PT_THREE);
-		return dhtMessage;
-	}
-
-	public static SimpleDynamoMessage getDefaultMessage() {
-		return new SimpleDynamoMessage(REQUEST_JOIN);
-	}
-
-	public static SimpleDynamoMessage getGlobalDumpMessage(String sendAvd, String requestAvd, int count) {
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(GLOBAL_QUERY);
-		dhtMessage.setAvd(sendAvd, SimpleDynamoMessage.AVD_INSERT_PT_ONE);
-		dhtMessage.setAvd(requestAvd, SimpleDynamoMessage.AVD_INSERT_PT_TWO);
-		dhtMessage.setCount(count);
-		return dhtMessage;
-	}
-
-	public static SimpleDynamoMessage getGlobalDumpResponseMessage(String sendAvd, String key, String value) {
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(GLOBAL_QUERY_RESPONSE);
-		dhtMessage.setAvd(sendAvd, SimpleDynamoMessage.AVD_INSERT_PT_ONE);
-		dhtMessage.setKey(key);
-		dhtMessage.setValue(value);
-		return dhtMessage;
-	}
-
-	private void setCount(int count) {
-		reinitializeArray(COUNT_INSERT_PT, 4);
-		insertTextPayloadContent(count + "", COUNT_INSERT_PT);
-	}
-	
-	/** byte[] manipulation methods */
-	public String getMessageCount() {
-		String intString = new String(getPayloadAsString(4, COUNT_INSERT_PT));
-		intString = intString.replaceAll("z", "");
-		return intString;
-	}
 
 	private void setKeyForSingle(String key) {
 		reinitializeArray(KEY_FOR_SINGLE_INSERT_PT, 6);
@@ -229,20 +156,7 @@ public class SimpleDynamoMessage {
 		value = value.replace("z", "");
 		return value;
 	}
-	
-	public static SimpleDynamoMessage getJoinMessage(String port){
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(REQUEST_JOIN);
-		dhtMessage.setAvd(port, AVD_INSERT_PT_ONE);
-		return dhtMessage;
-	}
-	
-	public static SimpleDynamoMessage getQueryMessage(){
-		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(QUERY);
-		return dhtMessage;		
-	}
 
-	
-
-
-	
+	public String getAvdTwo(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_TWO));}
+		
 }

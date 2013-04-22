@@ -19,7 +19,7 @@ public class PutClickListener implements OnClickListener {
 	
 	private static int putClicks = 0;
 	private static final String TAG = PutClickListener.class.getName();
-	private static final int TEST_CNT = 20;
+	private static final int TEST_CNT = 40;
 	public static final String KEY_FIELD = "key";
 	public static final String VALUE_FIELD = "value";
 

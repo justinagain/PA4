@@ -40,17 +40,23 @@ public class SimpleDynamoProvider extends ContentProvider {
 		String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
 		String port = findPartition(keyValue);
 		Log.v(TAG, "Partition is: " + port);		
-    	if(Util.isCoordinator(currentNode) && port.equals(currentNode)){
+    	if(port.equals(currentNode)){
 	        writeToInternalStorage(Util.getProviderUri(), contentValues);
-	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
+	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   
+	        sendToSuccessors();
     	}
     	//send to Coordinator if you get an insert and you are not the coordinator
     	else{
-			SimpleDynamoMessage message = SimpleDynamoMessage.getInsertRequestMessage(Constants.AVD0_PORT, keyValue, contentValue);
+			SimpleDynamoMessage message = SimpleDynamoMessage.getInsertMessage(port, keyValue, contentValue);
 	    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
     	}
 		return simpleDhtUri;
     }
+
+	private void sendToSuccessors() {
+		// TODO Auto-generated method stub
+		
+	}
 
 	private boolean writeToInternalStorage(Uri uri, ContentValues contentValues){
 		boolean success = false;
@@ -254,24 +260,6 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 	}
 	
-	public void processInsertRequestMessage(SimpleDynamoMessage sdm) {
-		ContentValues cv = new ContentValues();
-		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
-		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
-		String port = findPartition(sdm.getKey());
-		Log.v(TAG, "Partition is: " + port);	
-		// Add to AVd zero if it should go there
-		if(port.equals(Constants.AVD0_PORT)){
-	        writeToInternalStorage(Util.getProviderUri(), cv);
-	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
-		}
-		else{
-			// otherwise send where appropriate
-			SimpleDynamoMessage sdm2 = SimpleDynamoMessage.getInsertMessage(port, sdm.getKey(), sdm.getValue());
-			new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, sdm2);
-		}
-	}
-
 	public void processQueryResponse(SimpleDynamoMessage sdm) {
 		singleResponseCursorRow = new String[]{sdm.getKey(), sdm.getValue()};
 		waitForResponse = false;
@@ -291,11 +279,11 @@ public class SimpleDynamoProvider extends ContentProvider {
 	}
 
 	public void processInsertMessage(SimpleDynamoMessage sdm) {
+		Log.v(TAG, "In processInserMessage for " + currentNode);
 		ContentValues cv = new ContentValues();
 		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
 		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
-        writeToInternalStorage(Util.getProviderUri(), cv);
-        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);    		
+		insert(Util.getProviderUri(), cv);
 	}
 
 	
