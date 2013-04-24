@@ -22,6 +22,8 @@ import android.util.Log;
 
 public class SimpleDynamoProvider extends ContentProvider {
 	
+	// https://github.com/justinagain/PA4.git
+	
 	public static final String TAG = SimpleDynamoProvider.class.getName();
 	public static final String PREDECESSOR_NODE = "pred";
 	public static final String CURRENT_NODE = "curr";
@@ -31,19 +33,23 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private String successorNode;
 	private boolean waitForResponse;
 	private String[] singleResponseCursorRow;
+	private boolean quorum;
+	private String[] ports = new String[]{Constants.AVD0_PORT, Constants.AVD1_PORT, Constants.AVD2_PORT};
 
+	
 	public static final String ALL_SELECTION_LOCAL = "all_local_select";
 
     @Override
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
 		String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
 		String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
+		determineQuorum();
 		String port = findPartition(keyValue);
 		Log.v(TAG, "Partition is: " + port);		
     	if(port.equals(currentNode)){
 	        writeToInternalStorage(Util.getProviderUri(), contentValues);
 	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   
-	        sendToSuccessors();
+	        sendToSuccessors(keyValue, contentValue);
     	}
     	//send to Coordinator if you get an insert and you are not the coordinator
     	else{
@@ -53,9 +59,35 @@ public class SimpleDynamoProvider extends ContentProvider {
 		return simpleDhtUri;
     }
 
-	private void sendToSuccessors() {
-		// TODO Auto-generated method stub
-		
+	private void determineQuorum() {
+		quorum = false;
+		for (int i = 0; i < ports.length; i++) {
+			if(! ports[i].equals(currentNode)){
+				SimpleDynamoMessage message = SimpleDynamoMessage.getQuorumRequest(ports[i], currentNode);
+		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				if(quorum == true){
+					Log.d(TAG, "This node is active: " + ports[i]);
+					quorum = false;
+				}
+				else{
+					Log.d(TAG, "This node is inactive: " + ports[i]);				
+				}
+			}
+		}		
+	}
+
+	private void sendToSuccessors(String keyValue, String contentValue) {
+		for (int i = 0; i < ports.length; i++) {
+			if(! ports[i].equals(currentNode)){
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(ports[i], keyValue, contentValue);
+		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
+			}
+		}
 	}
 
 	private boolean writeToInternalStorage(Uri uri, ContentValues contentValues){
@@ -66,8 +98,6 @@ public class SimpleDynamoProvider extends ContentProvider {
 			String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
 			String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
 			// Satisfies 2.1.a
-			String type = findPartition(keyValue);
-			Log.v(TAG, "Determined should be sent to: " + type);
 			Log.v(TAG, "I have a message that belongs to the current node " + currentNode);				
 			String fileName = uri.toString().replace("content://", "");
 			fileName = fileName + "_" + keyValue;
@@ -92,23 +122,25 @@ public class SimpleDynamoProvider extends ContentProvider {
 		String keyHash;
 		try {
 			keyHash = genHash(keyToInsert);
-			String predecessorHash = genHash(Constants.AVD1_PORT);
-			String currentNodeHash = genHash(Constants.AVD0_PORT);
-			String successorHash = genHash(Constants.AVD2_PORT);
+			String avd2Hash = genHash(Constants.AVD2_PORT);
+			String avd1Hash = genHash(Constants.AVD1_PORT);
+			String avd0Hash = genHash(Constants.AVD0_PORT);
 			
 			// THERE ARE THREE OR MORE NODES
-			if(keyHash.compareTo(currentNodeHash) > 0 &&
-			   keyHash.compareTo(successorHash) < 0){				
+			if(keyHash.compareTo(avd2Hash) < 0){				
 					// current node
 					port = Constants.AVD0_PORT;
 			}
-			else if(keyHash.compareTo(predecessorHash) > 0 &&
-					   keyHash.compareTo(currentNodeHash) < 0){		
+			else if(keyHash.compareTo(avd2Hash) > 0 &&
+					   keyHash.compareTo(avd1Hash) < 0){		
+					port = Constants.AVD2_PORT;
+			}
+			else if(keyHash.compareTo(avd1Hash) > 0 ||
+					   keyHash.compareTo(avd0Hash) < 0){						
 					port = Constants.AVD1_PORT;
 			}
-			else if(keyHash.compareTo(successorHash) > 0 ||
-					   keyHash.compareTo(predecessorHash) < 0){						
-					port = Constants.AVD2_PORT;
+			else{
+				port = Constants.AVD0_PORT;
 			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -233,10 +265,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 		fileName = fileName.replace("content://", "");
 		for (File file : files) {
 			Log.v(TAG, "Base file is: " + fileName + " and compare name is: " + file.getName());
-			if(file.getName().startsWith(fileName)){
-				Log.v(TAG, "We have a match and must delete - it is old content.");
-				file.delete();				
-			}
+			file.delete();				
 		}		
 	}
 
@@ -284,6 +313,25 @@ public class SimpleDynamoProvider extends ContentProvider {
 		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
 		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
 		insert(Util.getProviderUri(), cv);
+	}
+
+	public void processInsertReplicaMessage(SimpleDynamoMessage sdm) {
+		Log.v(TAG, "In processInsertReplicaMessage for " + currentNode);
+		ContentValues cv = new ContentValues();
+		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
+		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
+        writeToInternalStorage(Util.getProviderUri(), cv);
+        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   
+
+	}
+
+	public void processQuorumRequestMessage(SimpleDynamoMessage sdm) {
+		SimpleDynamoMessage message = SimpleDynamoMessage.getQuorumResponse(sdm.getAvdTwo(), sdm.getAvdOne());
+    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
+	}
+
+	public void processQuorumResponseMessage(SimpleDynamoMessage sdm) {
+		quorum = true;
 	}
 
 	

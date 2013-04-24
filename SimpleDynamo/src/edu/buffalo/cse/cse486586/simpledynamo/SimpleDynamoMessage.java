@@ -4,6 +4,10 @@ public class SimpleDynamoMessage {
 	
 
 	public static final String INSERT = "i";
+	public static final String INSERT_REPLICA = "r";
+	private static final String QUORUM_REQUEST = "q";
+	private static final String QUORUM_RESPONSE = "u";
+	
 	
 	public static final String GLOBAL_QUERY_RESPONSE = "a";
 	public static final String GLOBAL_QUERY = "g";
@@ -107,6 +111,7 @@ public class SimpleDynamoMessage {
 	}
 
 	public boolean isInsertMessage(){return determineType(INSERT);}
+	public boolean isInsertReplica(){return determineType(INSERT_REPLICA);}
 
 	private boolean determineType(String type) {
 		String byteValue = new String(new byte[]{payload[0]});
@@ -145,6 +150,8 @@ public class SimpleDynamoMessage {
 
 	public boolean isQueryRequest() {return determineType(SINGLE_QUERY_REQUEST);}
 	public boolean isQueryResponse() {return determineType(SINGLE_QUERY_RESPONSE);}
+	public boolean isQuorumRequest() {return determineType(QUORUM_REQUEST);}
+	public boolean isQuorumResponse() {return determineType(QUORUM_RESPONSE);}
 
 	private void setKeyForSingle(String key) {
 		reinitializeArray(KEY_FOR_SINGLE_INSERT_PT, 6);
@@ -158,5 +165,27 @@ public class SimpleDynamoMessage {
 	}
 
 	public String getAvdTwo(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_TWO));}
-		
+
+	public static SimpleDynamoMessage getInsertReplicaMessage(String avd, String keyValue, String contentValue) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT_REPLICA);
+		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
+		dhtMessage.setKey(keyValue);
+		dhtMessage.setValue(contentValue);
+		return dhtMessage;
+	}
+
+	public static SimpleDynamoMessage getQuorumRequest(String requestee, String requestor) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(QUORUM_REQUEST);
+		dhtMessage.setAvd(requestee, AVD_INSERT_PT_ONE);
+		dhtMessage.setAvd(requestor, AVD_INSERT_PT_TWO);
+		return dhtMessage;
+	}
+
+	public static SimpleDynamoMessage getQuorumResponse(String requestor, String requestee) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(QUORUM_RESPONSE);
+		dhtMessage.setAvd(requestor, AVD_INSERT_PT_ONE);
+		dhtMessage.setAvd(requestee, AVD_INSERT_PT_TWO);
+		return dhtMessage;
+	}
+	
 }

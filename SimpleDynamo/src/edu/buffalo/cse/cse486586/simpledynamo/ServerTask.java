@@ -58,6 +58,18 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 					Log.v(TAG, "A query response has been received.");
 					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
 					sdp.processQueryResponse(sdm);
+				} else if(sdm.isInsertReplica()){
+					Log.v(TAG, "An insert replica message has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdOne());
+					sdp.processInsertReplicaMessage(sdm);					
+				} else if(sdm.isQuorumRequest()){
+					Log.v(TAG, "A quorum request has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdTwo());
+					sdp.processQuorumRequestMessage(sdm);										
+				} else if(sdm.isQuorumResponse()){
+					Log.v(TAG, "A quorum response has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdTwo());
+					sdp.processQuorumResponseMessage(sdm);										
 				}
 				socket.close();
 			}
