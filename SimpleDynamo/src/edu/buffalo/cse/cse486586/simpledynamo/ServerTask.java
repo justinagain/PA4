@@ -70,6 +70,10 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 					Log.v(TAG, "A quorum response has been received.");
 					Log.v(TAG, "Recevied from " + sdm.getAvdTwo());
 					sdp.processQuorumResponseMessage(sdm);										
+				} else if(sdm.isSyncRequest()){
+					Log.v(TAG, "A sycn request has been received.");
+					Log.v(TAG, "Recevied from " + sdm.getAvdTwo());
+					sdp.processSycnRequestMessage(sdm);															
 				}
 				socket.close();
 			}

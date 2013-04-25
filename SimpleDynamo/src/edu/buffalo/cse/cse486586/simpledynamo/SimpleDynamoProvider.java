@@ -8,7 +8,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Formatter;
+import java.util.HashMap;
+
 import android.app.Application;
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -35,6 +38,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private String[] singleResponseCursorRow;
 	private boolean quorum;
 	private String[] ports = new String[]{Constants.AVD0_PORT, Constants.AVD1_PORT, Constants.AVD2_PORT};
+	private HashMap<String, String> keyVersions = new HashMap<String, String>();
+	private int globalId = 0;
 
 	
 	public static final String ALL_SELECTION_LOCAL = "all_local_select";
@@ -43,13 +48,21 @@ public class SimpleDynamoProvider extends ContentProvider {
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
 		String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
 		String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
-		determineQuorum();
-		String port = findPartition(keyValue);
+		String failedNode = determineQuorum();
+		String port = "";
+		if(failedNode.length() == 0){
+			port = findPartitionForThreeNodes(keyValue);			
+		}
+		else{
+			port = findPartitionForTwoNodes(keyValue, failedNode);						
+		}
 		Log.v(TAG, "Partition is: " + port);		
     	if(port.equals(currentNode)){
+    		globalId++;
+    		keyVersions.put(keyValue, globalId + "");
 	        writeToInternalStorage(Util.getProviderUri(), contentValues);
 	        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   
-	        sendToSuccessors(keyValue, contentValue);
+	        sendToSuccessors(keyValue, contentValue, failedNode);
     	}
     	//send to Coordinator if you get an insert and you are not the coordinator
     	else{
@@ -59,7 +72,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 		return simpleDhtUri;
     }
 
-	private void determineQuorum() {
+	private String determineQuorum() {
+		String failedNode ="";
 		quorum = false;
 		for (int i = 0; i < ports.length; i++) {
 			if(! ports[i].equals(currentNode)){
@@ -75,16 +89,18 @@ public class SimpleDynamoProvider extends ContentProvider {
 					quorum = false;
 				}
 				else{
-					Log.d(TAG, "This node is inactive: " + ports[i]);				
+					Log.d(TAG, "This node is inactive: " + ports[i]);
+					failedNode = ports[i];
 				}
 			}
-		}		
+		}
+		return failedNode;
 	}
 
-	private void sendToSuccessors(String keyValue, String contentValue) {
+	private void sendToSuccessors(String keyValue, String contentValue, String failedNode) {
 		for (int i = 0; i < ports.length; i++) {
-			if(! ports[i].equals(currentNode)){
-				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(ports[i], keyValue, contentValue);
+			if(! ports[i].equals(currentNode) || ! ports[i].equals(failedNode)){
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(ports[i], keyValue, contentValue, globalId);
 		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
 			}
 		}
@@ -117,7 +133,25 @@ public class SimpleDynamoProvider extends ContentProvider {
 		return success;
 	}
 	
-	private String findPartition(String keyToInsert){
+	private String findPartitionForTwoNodes(String keyToInsert, String failedNode){
+		String port = findPartitionForThreeNodes(keyToInsert);
+		// if the partition is the bad one, we need to send it to the predecessor
+		if(port.equals(failedNode)){
+			if(port.equals(Constants.AVD0_PORT)){
+				port = Constants.AVD1_PORT;
+			}
+			else if(port.equals(Constants.AVD1_PORT)){
+				port = Constants.AVD2_PORT;
+			}
+			else if(port.equals(Constants.AVD2_PORT)){
+				port = Constants.AVD0_PORT;				
+			}
+		}
+		return port;
+	}
+
+	
+	private String findPartitionForThreeNodes(String keyToInsert){
 		String port = "";
 		String keyHash;
 		try {
@@ -147,7 +181,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 		}
 		return port;
 	}
-    @Override
+
+	@Override
     public Cursor query(Uri providedUri, String[] arg1, String keyValue, String[] arg3,
 			String arg4) {
 		Log.v(TAG, "Entering SimpleDynamoProvider query");
@@ -160,7 +195,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 			// We need to go elsewhere to find the key
 			if(matrixCursor.getCount() == 0){
 				String nodeToSendQuery = "";
-				String type = findPartition(keyValue);
+				determineQuorum();
+				String type = findPartitionForThreeNodes(keyValue);
 				if(type.equals(PREDECESSOR_NODE)){
 					nodeToSendQuery = predecessorNode;
 				}
@@ -243,9 +279,16 @@ public class SimpleDynamoProvider extends ContentProvider {
     	cleanProvider();
     	setNode();
     	setConnections();
+    	requestSync();
     	return false;
 	}
 	
+	private void requestSync() {
+		SimpleDynamoMessage message = SimpleDynamoMessage.geRequestSyncMessage(successorNode, currentNode);
+    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
+		
+	}
+
 	private void setConnections() {
 		predecessorNode = Util.getPredecessor(currentNode);
 		successorNode = Util.getSuccessor(currentNode);
@@ -320,18 +363,44 @@ public class SimpleDynamoProvider extends ContentProvider {
 		ContentValues cv = new ContentValues();
 		cv.put(PutClickListener.KEY_FIELD, sdm.getKey());
 		cv.put(PutClickListener.VALUE_FIELD, sdm.getValue());
+		globalId = Integer.parseInt(sdm.getGlobalId());
+		keyVersions.put(sdm.getKey(), globalId + "");
         writeToInternalStorage(Util.getProviderUri(), cv);
-        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   
-
+        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   			
 	}
 
 	public void processQuorumRequestMessage(SimpleDynamoMessage sdm) {
-		SimpleDynamoMessage message = SimpleDynamoMessage.getQuorumResponse(sdm.getAvdTwo(), sdm.getAvdOne());
+		SimpleDynamoMessage message = SimpleDynamoMessage.getQuorumResponse(sdm.getAvdTwo(), sdm.getAvdOne(), globalId + "");
     	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
 	}
 
 	public void processQuorumResponseMessage(SimpleDynamoMessage sdm) {
+		Log.v(TAG, "Processing a message.  My global ID is stated to be: " + sdm.getGlobalId());
 		quorum = true;
+	}
+
+	public void processSycnRequestMessage(SimpleDynamoMessage sdm) {
+    	Uri selectAllUri = Util.getProviderUri();
+    	Cursor resultCursor = query(selectAllUri, null, SimpleDynamoProvider.ALL_SELECTION_LOCAL, null, "");
+		int keyIndex = resultCursor.getColumnIndex(OnLDumpClickListener.KEY_FIELD);
+		int valueIndex = resultCursor.getColumnIndex(OnLDumpClickListener.VALUE_FIELD);
+		Log.v(TAG, "About LDump the results");
+		for (boolean hasItem = resultCursor.moveToFirst(); hasItem; hasItem = resultCursor.moveToNext()) {
+			String key = resultCursor.getString(keyIndex);
+			String value = resultCursor.getString(valueIndex);
+
+			String port = findPartitionForThreeNodes(key);
+			if(port.equals(sdm.getAvdTwo())){
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertMessage(sdm.getAvdTwo(), key, value);
+		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
+			}
+			else{
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(sdm.getAvdTwo(), key, value, 0);
+		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    										
+			}
+		
+		}
+		
 	}
 
 	

@@ -7,6 +7,7 @@ public class SimpleDynamoMessage {
 	public static final String INSERT_REPLICA = "r";
 	private static final String QUORUM_REQUEST = "q";
 	private static final String QUORUM_RESPONSE = "u";
+	private static final String SYNC_REQUEST = "y";
 	
 	
 	public static final String GLOBAL_QUERY_RESPONSE = "a";
@@ -20,10 +21,11 @@ public class SimpleDynamoMessage {
 	public static final String SINGLE_QUERY_RESPONSE = "b";
 	public static final int AVD_INSERT_PT_ONE = 1;
 	public static final int AVD_INSERT_PT_TWO = 5;
+	public static final int GLOBAL_ID_INSERT_PT = 17;
+
 	public static final int AVD_INSERT_PT_THREE = 9;
 	public static final int KEY_INSERT_PT = 5;
 	public static final int VALUE_INSERT_PT = 11;
-	public static final int COUNT_INSERT_PT = 17;
 	public static final int KEY_FOR_SINGLE_INSERT_PT = 17;
 	private static final byte ARRAY_INITIALIZER = "z".getBytes()[0];
 	public static final int MSG_SIZE = 142;
@@ -76,11 +78,22 @@ public class SimpleDynamoMessage {
 		insertTextPayloadContent(key, KEY_INSERT_PT);
 	}
 
+	private void setGlobalId(String gloablId) {
+		reinitializeArray(GLOBAL_ID_INSERT_PT, 4);
+		insertTextPayloadContent(gloablId, GLOBAL_ID_INSERT_PT);		
+	}
+	
 	public void setValue(String value){ 
 		reinitializeArray(VALUE_INSERT_PT, 6);
 		insertTextPayloadContent(value, VALUE_INSERT_PT);
 	}
 
+	public String getGlobalId(){ 
+		String contentValue = new String(getPayloadAsString(4, GLOBAL_ID_INSERT_PT));
+		contentValue = contentValue.replaceAll("z", "");
+		return contentValue;
+	}
+	
 	public String getKey(){ 
 		String keyValue = new String(getPayloadAsString(6, KEY_INSERT_PT));
 		keyValue = keyValue.replaceAll("z", "");
@@ -112,6 +125,7 @@ public class SimpleDynamoMessage {
 
 	public boolean isInsertMessage(){return determineType(INSERT);}
 	public boolean isInsertReplica(){return determineType(INSERT_REPLICA);}
+	public boolean isSyncRequest(){return determineType(SYNC_REQUEST);}
 
 	private boolean determineType(String type) {
 		String byteValue = new String(new byte[]{payload[0]});
@@ -166,11 +180,12 @@ public class SimpleDynamoMessage {
 
 	public String getAvdTwo(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_TWO));}
 
-	public static SimpleDynamoMessage getInsertReplicaMessage(String avd, String keyValue, String contentValue) {
+	public static SimpleDynamoMessage getInsertReplicaMessage(String avd, String keyValue, String contentValue, int globalId) {
 		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT_REPLICA);
 		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
 		dhtMessage.setKey(keyValue);
 		dhtMessage.setValue(contentValue);
+		dhtMessage.setGlobalId(globalId + "");
 		return dhtMessage;
 	}
 
@@ -181,10 +196,18 @@ public class SimpleDynamoMessage {
 		return dhtMessage;
 	}
 
-	public static SimpleDynamoMessage getQuorumResponse(String requestor, String requestee) {
+	public static SimpleDynamoMessage getQuorumResponse(String requestor, String requestee, String gloablId) {
 		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(QUORUM_RESPONSE);
 		dhtMessage.setAvd(requestor, AVD_INSERT_PT_ONE);
 		dhtMessage.setAvd(requestee, AVD_INSERT_PT_TWO);
+		dhtMessage.setGlobalId(gloablId);
+		return dhtMessage;
+	}
+
+	public static SimpleDynamoMessage geRequestSyncMessage(String successorNode, String currentNode) {
+		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(SYNC_REQUEST);
+		dhtMessage.setAvd(successorNode, AVD_INSERT_PT_ONE);
+		dhtMessage.setAvd(currentNode, AVD_INSERT_PT_TWO);
 		return dhtMessage;
 	}
 	
