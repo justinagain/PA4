@@ -194,16 +194,17 @@ public class SimpleDynamoProvider extends ContentProvider {
 			getLocalKeyValue(matrixCursor, keyValue);
 			// We need to go elsewhere to find the key
 			if(matrixCursor.getCount() == 0){
-				String nodeToSendQuery = "";
-				determineQuorum();
-				String type = findPartitionForThreeNodes(keyValue);
-				if(type.equals(PREDECESSOR_NODE)){
-					nodeToSendQuery = predecessorNode;
+				
+				
+				String failedNode = determineQuorum();
+				String port = "";
+				if(failedNode.length() == 0){
+					port = findPartitionForThreeNodes(keyValue);			
 				}
-				else if(type.equals(SUCCESSOR_NODE)){
-					nodeToSendQuery = successorNode;					
+				else{
+					port = findPartitionForTwoNodes(keyValue, failedNode);						
 				}
-				new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, SimpleDynamoMessage.getQueryMessage(nodeToSendQuery, currentNode, keyValue));
+				new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, SimpleDynamoMessage.getQueryMessage(port, currentNode, keyValue));
 				waitForResponse = true;
 				while(waitForResponse){	
 				}

@@ -16,7 +16,7 @@ public class GetClickListener implements OnClickListener {
 
 	private static int getClicks = 0;
 	private static final String TAG = GetClickListener.class.getName();
-	private static final int TEST_CNT = 50;
+	private static final int TEST_CNT = 20;
 	public static final String KEY_FIELD = "key";
 	public static final String VALUE_FIELD = "value";
 
@@ -49,6 +49,18 @@ public class GetClickListener implements OnClickListener {
 		@Override
 		protected Void doInBackground(Void... params) {
 			getClicks++;
+			for (int i = 0; i < TEST_CNT; i++) {
+				Cursor resultCursor = mContentResolver.query(Util.getProviderUri(), null, i+"", null, "");
+				int keyIndex = resultCursor.getColumnIndex(OnLDumpClickListener.KEY_FIELD);
+				int valueIndex = resultCursor.getColumnIndex(OnLDumpClickListener.VALUE_FIELD);
+				for (boolean hasItem = resultCursor.moveToFirst(); hasItem; hasItem = resultCursor.moveToNext()) {
+					String key = resultCursor.getString(keyIndex);
+					String value = resultCursor.getString(valueIndex);
+					Log.v(TAG, "Key and value are: " + key + " : " + value);
+					publishProgress(key + ":" + value + "\n");
+				}
+
+			}
 			publishProgress("New Get Request - Click: " + getClicks + "\n");
 			return null;
 		}
