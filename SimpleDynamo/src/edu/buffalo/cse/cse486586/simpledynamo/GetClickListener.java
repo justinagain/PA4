@@ -49,6 +49,7 @@ public class GetClickListener implements OnClickListener {
 		@Override
 		protected Void doInBackground(Void... params) {
 			getClicks++;
+			publishProgress("New Get Request - Click: " + getClicks + "\n");
 			for (int i = 0; i < TEST_CNT; i++) {
 				Cursor resultCursor = mContentResolver.query(Util.getProviderUri(), null, i+"", null, "");
 				int keyIndex = resultCursor.getColumnIndex(OnLDumpClickListener.KEY_FIELD);
@@ -61,7 +62,6 @@ public class GetClickListener implements OnClickListener {
 				}
 
 			}
-			publishProgress("New Get Request - Click: " + getClicks + "\n");
 			return null;
 		}
 		

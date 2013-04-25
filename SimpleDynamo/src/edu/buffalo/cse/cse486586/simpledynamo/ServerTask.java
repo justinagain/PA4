@@ -74,7 +74,7 @@ public class ServerTask extends AsyncTask<ServerSocket, String, Void>{
 					Log.v(TAG, "A sycn request has been received.");
 					Log.v(TAG, "Recevied from " + sdm.getAvdTwo());
 					sdp.processSycnRequestMessage(sdm);															
-				}
+				} 
 				socket.close();
 			}
 		}

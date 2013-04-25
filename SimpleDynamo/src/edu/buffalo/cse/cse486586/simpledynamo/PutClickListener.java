@@ -70,13 +70,6 @@ public class PutClickListener implements OnClickListener {
 				publishProgress("Insert fail\n");
 				return null;
 			}
-
-//			if (testQuery()) {
-//				publishProgress("Query success\n");
-//			} else {
-//				publishProgress("Query fail\n");
-//			}
-			
 			return null;
 		}
 		
@@ -103,54 +96,6 @@ public class PutClickListener implements OnClickListener {
 
 			return true;
 		}
-
-		private boolean testQuery() {
-			try {
-				for (int i = 0; i < TEST_CNT; i++) {
-					String key = (String) mContentValues[i].get(KEY_FIELD);
-					String val = (String) mContentValues[i].get(VALUE_FIELD);
-
-					Log.v(TAG, "About to query for: " + key);
-					Cursor resultCursor = mContentResolver.query(Util.getProviderUri(), null,
-							key, null, null);
-					if (resultCursor == null) {
-						Log.e(TAG, "Result null");
-						throw new Exception();
-					}
-
-					int keyIndex = resultCursor.getColumnIndex(KEY_FIELD);
-					int valueIndex = resultCursor.getColumnIndex(VALUE_FIELD);
-					if (keyIndex == -1 || valueIndex == -1) {
-						Log.e(TAG, "Wrong columns");
-						resultCursor.close();
-						throw new Exception();
-					}
-
-					resultCursor.moveToFirst();
-
-					if (!(resultCursor.isFirst() && resultCursor.isLast())) {
-						Log.e(TAG, "Wrong number of rows");
-						resultCursor.close();
-						throw new Exception();
-					}
-
-					String returnKey = resultCursor.getString(keyIndex);
-					String returnValue = resultCursor.getString(valueIndex);
-					if (!(returnKey.equals(key) && returnValue.equals(val))) {
-						Log.e(TAG, "(key, value) pairs don't match\n");
-						resultCursor.close();
-						throw new Exception();
-					}
-
-					resultCursor.close();
-				}
-			} catch (Exception e) {
-				return false;
-			}
-
-			return true;
-		}
-
 
 	}
 

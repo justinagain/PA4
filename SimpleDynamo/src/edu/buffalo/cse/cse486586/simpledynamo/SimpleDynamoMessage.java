@@ -21,11 +21,11 @@ public class SimpleDynamoMessage {
 	public static final String SINGLE_QUERY_RESPONSE = "b";
 	public static final int AVD_INSERT_PT_ONE = 1;
 	public static final int AVD_INSERT_PT_TWO = 5;
-	public static final int GLOBAL_ID_INSERT_PT = 17;
+	public static final int GLOBAL_ID_INSERT_PT = 21;
 
 	public static final int AVD_INSERT_PT_THREE = 9;
-	public static final int KEY_INSERT_PT = 5;
-	public static final int VALUE_INSERT_PT = 11;
+	public static final int KEY_INSERT_PT = 9;
+	public static final int VALUE_INSERT_PT = 15;
 	public static final int KEY_FOR_SINGLE_INSERT_PT = 17;
 	private static final byte ARRAY_INITIALIZER = "z".getBytes()[0];
 	public static final int MSG_SIZE = 142;
@@ -180,9 +180,10 @@ public class SimpleDynamoMessage {
 
 	public String getAvdTwo(){ return new String(getPayloadAsString(4, AVD_INSERT_PT_TWO));}
 
-	public static SimpleDynamoMessage getInsertReplicaMessage(String avd, String keyValue, String contentValue, int globalId) {
+	public static SimpleDynamoMessage getInsertReplicaMessage(String avd1, String avd2, String keyValue, String contentValue, int globalId) {
 		SimpleDynamoMessage dhtMessage = new SimpleDynamoMessage(INSERT_REPLICA);
-		dhtMessage.setAvd(avd, AVD_INSERT_PT_ONE);
+		dhtMessage.setAvd(avd1, AVD_INSERT_PT_ONE);
+		dhtMessage.setAvd(avd2, AVD_INSERT_PT_TWO);
 		dhtMessage.setKey(keyValue);
 		dhtMessage.setValue(contentValue);
 		dhtMessage.setGlobalId(globalId + "");
@@ -210,5 +211,5 @@ public class SimpleDynamoMessage {
 		dhtMessage.setAvd(currentNode, AVD_INSERT_PT_TWO);
 		return dhtMessage;
 	}
-	
+
 }

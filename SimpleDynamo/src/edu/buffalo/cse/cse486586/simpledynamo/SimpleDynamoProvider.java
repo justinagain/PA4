@@ -100,8 +100,8 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private void sendToSuccessors(String keyValue, String contentValue, String failedNode) {
 		for (int i = 0; i < ports.length; i++) {
 			if(! ports[i].equals(currentNode) || ! ports[i].equals(failedNode)){
-				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(ports[i], keyValue, contentValue, globalId);
-		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(ports[i], currentNode, keyValue, contentValue, globalId);
+		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);
 			}
 		}
 	}
@@ -191,24 +191,27 @@ public class SimpleDynamoProvider extends ContentProvider {
 			getAllLocalKeyValue(matrixCursor);
 		}
 		else{
-			getLocalKeyValue(matrixCursor, keyValue);
-			// We need to go elsewhere to find the key
-			if(matrixCursor.getCount() == 0){
-				
-				
-				String failedNode = determineQuorum();
-				String port = "";
-				if(failedNode.length() == 0){
-					port = findPartitionForThreeNodes(keyValue);			
-				}
-				else{
-					port = findPartitionForTwoNodes(keyValue, failedNode);						
-				}
-				new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, SimpleDynamoMessage.getQueryMessage(port, currentNode, keyValue));
+			String failedNode = determineQuorum();
+			String port = "";
+			if(failedNode.length() == 0){
+				port = findPartitionForThreeNodes(keyValue);			
+			}
+			else{
+				port = findPartitionForTwoNodes(keyValue, failedNode);						
+			}
+			if(port.equals(currentNode)){
+				getLocalKeyValue(matrixCursor, keyValue);				
+			}
+			else{
 				waitForResponse = true;
+				boolean firstPass = true;
 				while(waitForResponse){	
+					if(firstPass){
+						new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, SimpleDynamoMessage.getQueryMessage(port, currentNode, keyValue));						
+					}
+					firstPass = false;
 				}
-				matrixCursor.addRow(singleResponseCursorRow);
+				matrixCursor.addRow(singleResponseCursorRow);				
 			}
 		}
 		return matrixCursor;    
@@ -217,11 +220,6 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private void getAllLocalKeyValue(MatrixCursor matrixCursor) {
 		for (int i = 0; i < 20; i++) {
 			getLocalKeyValue(matrixCursor, i + "");
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
 		}
 	}
 
@@ -335,13 +333,18 @@ public class SimpleDynamoProvider extends ContentProvider {
 	
 	public void processQueryResponse(SimpleDynamoMessage sdm) {
 		singleResponseCursorRow = new String[]{sdm.getKey(), sdm.getValue()};
-		waitForResponse = false;
-		
+		waitForResponse = false;		
 	}
 		
 	public void processQueryRequest(SimpleDynamoMessage sdm) {
 		String key = sdm.getKeyForSingle();
-		Cursor cursor = query(Util.getProviderUri(), null, key, null, null);
+		
+    	MatrixCursor cursor = new MatrixCursor(new String[]{"key", "value"});
+		getLocalKeyValue(cursor, key);				
+
+
+		
+		//Cursor cursor = query(Util.getProviderUri(), null, key, null, null);
 		int keyIndex = cursor.getColumnIndex(PutClickListener.KEY_FIELD);
 		int valueIndex = cursor.getColumnIndex(PutClickListener.VALUE_FIELD);
 		cursor.moveToFirst();
@@ -367,7 +370,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 		globalId = Integer.parseInt(sdm.getGlobalId());
 		keyVersions.put(sdm.getKey(), globalId + "");
         writeToInternalStorage(Util.getProviderUri(), cv);
-        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);   			
+        getContext().getContentResolver().notifyChange(Util.getProviderUri(), null);
 	}
 
 	public void processQuorumRequestMessage(SimpleDynamoMessage sdm) {
@@ -396,7 +399,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    						
 			}
 			else{
-				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(sdm.getAvdTwo(), key, value, 0);
+				SimpleDynamoMessage message = SimpleDynamoMessage.getInsertReplicaMessage(sdm.getAvdTwo(), currentNode, key, value, 0);
 		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    										
 			}
 		
@@ -404,5 +407,4 @@ public class SimpleDynamoProvider extends ContentProvider {
 		
 	}
 
-	
 }

@@ -47,6 +47,8 @@ public class OnLDumpClickListener implements OnClickListener {
 		
 		@Override
 		protected Void doInBackground(Void... params) {
+			ldumpClicks++;
+			publishProgress("New LDump Request - Click: " + ldumpClicks + "\n");
 	    	Uri selectAllUri = Util.getProviderUri();
 	    	Log.v(TAG, "About to query from LDump");
 	    	Cursor resultCursor = mContentResolver.query(selectAllUri, null, SimpleDynamoProvider.ALL_SELECTION_LOCAL, null, "");
@@ -59,8 +61,6 @@ public class OnLDumpClickListener implements OnClickListener {
 				Log.v(TAG, "Key and value are: " + key + " : " + value);
 				publishProgress(key + ":" + value + "\n");
 			}
-			ldumpClicks++;
-			publishProgress("New LDump Request - Click: " + ldumpClicks + "\n");
 			return null;
 		}
 		
