@@ -34,9 +34,10 @@ public class SimpleDynamoProvider extends ContentProvider {
 	private String currentNode;
 	private String predecessorNode;
 	private String successorNode;
-	private boolean waitForResponse;
-	private String[] singleResponseCursorRow;
-	private boolean quorum;
+	private volatile String failedNode;
+	private volatile boolean waitForResponse;
+	private volatile String[] singleResponseCursorRow;
+	private volatile boolean quorum;
 	private String[] ports = new String[]{Constants.AVD0_PORT, Constants.AVD1_PORT, Constants.AVD2_PORT};
 	private HashMap<String, String> keyVersions = new HashMap<String, String>();
 	private int globalId = 0;
@@ -48,7 +49,7 @@ public class SimpleDynamoProvider extends ContentProvider {
     public Uri insert(Uri simpleDhtUri, ContentValues contentValues) {
 		String keyValue = contentValues.get(PutClickListener.KEY_FIELD).toString();
 		String contentValue = contentValues.get(PutClickListener.VALUE_FIELD).toString();
-		String failedNode = determineQuorum();
+		determineQuorum();
 		String port = "";
 		if(failedNode.length() == 0){
 			port = findPartitionForThreeNodes(keyValue);			
@@ -72,15 +73,15 @@ public class SimpleDynamoProvider extends ContentProvider {
 		return simpleDhtUri;
     }
 
-	private String determineQuorum() {
-		String failedNode ="";
+	private void determineQuorum() {
+		failedNode ="";
 		quorum = false;
 		for (int i = 0; i < ports.length; i++) {
 			if(! ports[i].equals(currentNode)){
 				SimpleDynamoMessage message = SimpleDynamoMessage.getQuorumRequest(ports[i], currentNode);
 		    	new SimpleDynamoClientTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, message);				    		
 				try {
-					Thread.sleep(100);
+					Thread.sleep(400);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -91,10 +92,10 @@ public class SimpleDynamoProvider extends ContentProvider {
 				else{
 					Log.d(TAG, "This node is inactive: " + ports[i]);
 					failedNode = ports[i];
+					break;
 				}
 			}
 		}
-		return failedNode;
 	}
 
 	private void sendToSuccessors(String keyValue, String contentValue, String failedNode) {
@@ -134,6 +135,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 	}
 	
 	private String findPartitionForTwoNodes(String keyToInsert, String failedNode){
+		Log.v(TAG, "***** I need to find a partition based on this failed node: " + failedNode);								
 		String port = findPartitionForThreeNodes(keyToInsert);
 		// if the partition is the bad one, we need to send it to the predecessor
 		if(port.equals(failedNode)){
@@ -147,6 +149,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 				port = Constants.AVD0_PORT;				
 			}
 		}
+		Log.v(TAG, "***** I decided to send to this node: " + port+ " for value " + keyToInsert);								
 		return port;
 	}
 
@@ -191,7 +194,7 @@ public class SimpleDynamoProvider extends ContentProvider {
 			getAllLocalKeyValue(matrixCursor);
 		}
 		else{
-			String failedNode = determineQuorum();
+			determineQuorum();
 			String port = "";
 			if(failedNode.length() == 0){
 				port = findPartitionForThreeNodes(keyValue);			
@@ -381,6 +384,10 @@ public class SimpleDynamoProvider extends ContentProvider {
 	public void processQuorumResponseMessage(SimpleDynamoMessage sdm) {
 		Log.v(TAG, "Processing a message.  My global ID is stated to be: " + sdm.getGlobalId());
 		quorum = true;
+	}
+	
+	public boolean isQuorumLocked(){
+		return quorum;
 	}
 
 	public void processSycnRequestMessage(SimpleDynamoMessage sdm) {
